@@ -11,7 +11,6 @@ import (
 	"time"
 
 	socketio "github.com/googollee/go-socket.io"
-	"github.com/samirkhanal52/go-cli-chat-app/middleware"
 	"github.com/samirkhanal52/go-cli-chat-app/models"
 )
 
@@ -20,7 +19,7 @@ func main() {
 
 	socketServer.OnConnect("/", func(s socketio.Conn) error {
 		s.SetContext("")
-		log.Println("connected:", s.ID())
+		log.Println("Connected ID:", s.ID())
 		s.Join(models.ChannelName)
 		socketServer.BroadcastToRoom("/", models.ChannelName, "message", models.UserName+" joined the chat.")
 
@@ -35,19 +34,25 @@ func main() {
 				Message:      msg,
 			}
 
-			middleware.InsertMessage(chatMessage)
+			InsertMessage(chatMessage)
 
 			socketServer.OnError("/", func(s socketio.Conn, e error) {
-				fmt.Println("meet error:", e)
+				fmt.Println("Error:", e)
 			})
 
 			socketServer.OnDisconnect("/", func(s socketio.Conn, reason string) {
-				fmt.Println("closed", reason)
+				fmt.Println("Closed", reason)
 			})
 		})
 
 		return nil
 	})
+
+	//Get Host URL
+	if _, ok := os.LookupEnv("PORT"); !ok {
+		os.Setenv("PORT", "http://127.0.0.1:4444")
+		log.Print("Host connected..")
+	}
 
 	srvMux := http.NewServeMux()
 	srvMux.Handle("/socket.io/", socketServer)
