@@ -12,6 +12,7 @@ import (
 
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/samirkhanal52/go-cli-chat-app/models"
+	"github.com/samirkhanal52/go-cli-chat-app/server/connection"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 
 		socketServer.OnEvent("/", "message", func(s socketio.Conn, msg string) {
 			s.SetContext(msg)
-			log.Println("message:", msg)
+			fmt.Println("message:", msg)
 			socketServer.BroadcastToRoom("/", models.ChannelName, "message", msg)
 
 			chatMessage := models.Chats{
@@ -34,7 +35,13 @@ func main() {
 				Message:      msg,
 			}
 
-			InsertMessage(chatMessage)
+			response := connection.InsertMessage(chatMessage)
+
+			if response[0].StatusCode == "200" {
+				fmt.Println(response[0].StatusMessage + "\n")
+			} else {
+				log.Println(response[0].StatusMessage + "\n")
+			}
 
 			socketServer.OnError("/", func(s socketio.Conn, e error) {
 				fmt.Println("Error:", e)
@@ -50,7 +57,7 @@ func main() {
 
 	//Get Host URL
 	if _, ok := os.LookupEnv("PORT"); !ok {
-		os.Setenv("PORT", "http://127.0.0.1:4444")
+		os.Setenv("PORT", ":4444")
 		log.Print("Host connected..")
 	}
 

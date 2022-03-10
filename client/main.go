@@ -7,15 +7,39 @@ import (
 	"os"
 	"time"
 
+	"github.com/samirkhanal52/go-cli-chat-app/client/connection"
 	"github.com/samirkhanal52/go-cli-chat-app/models"
 	socketio_client "github.com/zhouhui8915/go-socket.io-client"
 )
+
+var client *socketio_client.Client
 
 func main() {
 	Login()
 
 	fmt.Println("WELCOME " + models.UserName)
 
+	initSocket()
+
+	fmt.Print("Write Message:")
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		data, _, _ := reader.ReadLine()
+		command := string(data)
+		if command == "quit" {
+			return
+		}
+
+		if err := client.Emit("message", models.UserName+":"+command); err != nil {
+			log.Printf("Emit message error:%v\n", err)
+			continue
+		}
+	}
+}
+
+//Initialize socket
+func initSocket() {
 	opts := &socketio_client.Options{
 		Transport: "websocket",
 		Query:     make(map[string]string),
@@ -28,14 +52,19 @@ func main() {
 		os.Setenv("HOST", "http://127.0.0.1:4444")
 	}
 
-	client, err := socketio_client.NewClient(os.Getenv("HOST"), opts)
+	clientTemp, err := socketio_client.NewClient(os.Getenv("HOST"), opts)
+
 	if err != nil {
 		log.Printf("New Client Error:%v\n", err)
+		os.Exit(0)
 		return
 	}
 
+	client = clientTemp
+
 	client.On("error", func() {
 		log.Printf("Error\n")
+		os.Exit(0)
 	})
 
 	client.On("connection", func() {
@@ -60,22 +89,6 @@ func main() {
 			time.Sleep(10 * time.Second)
 		}
 	}()
-
-	fmt.Print("Write Message:")
-
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		data, _, _ := reader.ReadLine()
-		command := string(data)
-		if command == "quit" {
-			return
-		}
-
-		if err := client.Emit("message", models.UserName+":"+command); err != nil {
-			log.Printf("Emit message error:%v\n", err)
-			continue
-		}
-	}
 }
 
 //User Login
@@ -123,7 +136,16 @@ func Login() {
 		}
 	}
 
-	loginUser(user)
+	response := connection.LoginUser(user)
+
+	if response[0].StatusCode == "200" {
+		fmt.Println(response[0].StatusMessage)
+		models.UserID = response[0].StatusID
+		models.UserName = user.UserName
+	} else {
+		log.Println(response[0].StatusMessage)
+		Login()
+	}
 }
 
 //User Registration
@@ -197,5 +219,11 @@ func Register() {
 		}
 	}
 
-	registerUser(user)
+	response := connection.RegisterUser(user)
+
+	if response[0].StatusCode == "200" {
+		fmt.Println(response[0].StatusMessage)
+	} else {
+		log.Fatalln(response[0].StatusMessage)
+	}
 }
